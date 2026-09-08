@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - IT Admin Portal{% endblock %}
+
+{% block content %}
+<div class="container py-3" style="max-width: 720px;">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="{% url 'admin_portal_dashboard' %}" class="text-decoration-none">Admin Portal</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'admin_user_list' %}" class="text-decoration-none">Clinicians</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
+        </ol>
+    </nav>
+
+    <div class="card card-custom shadow-sm">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+            <h4 class="h5 fw-bold text-dark mb-0">
+                <i class="bi bi-person-gear text-primary me-2"></i>{{ title }}
+            </h4>
+            <a href="{% url 'admin_user_list' %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Back to Directory
+            </a>
+        </div>
+        <div class="card-body p-4">
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger py-2 small">
+                        {% for err in form.non_field_errors %}
+                            <div>{{ err }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="row g-3">
+                    {% if form.username %}
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small text-dark">Username <span class="text-danger">*</span></label>
+                            {{ form.username }}
+                            {% if form.username.errors %}<div class="text-danger small mt-1">{{ form.username.errors.0 }}</div>{% endif %}
+                            <div class="form-text small">Used for login credentials. Letters, numbers, and @/./+/-/_ only.</div>
+                        </div>
+                    {% endif %}
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small text-dark">First Name</label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}<div class="text-danger small mt-1">{{ form.first_name.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small text-dark">Last Name</label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}<div class="text-danger small mt-1">{{ form.last_name.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold small text-dark">Email Address</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}<div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    {% if form.password %}
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small text-dark">Initial Password <span class="text-danger">*</span></label>
+                            {{ form.password }}
+                            {% if form.password.errors %}<div class="text-danger small mt-1">{{ form.password.errors.0 }}</div>{% endif %}
+                        </div>
+                    {% endif %}
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small text-dark">System Role <span class="text-danger">*</span></label>
+                        {{ form.role }}
+                        {% if form.role.errors %}<div class="text-danger small mt-1">{{ form.role.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small text-dark">Department</label>
+                        {{ form.department }}
+                        {% if form.department.errors %}<div class="text-danger small mt-1">{{ form.department.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold small text-dark">Specialization / Expertise</label>
+                        {{ form.specialization }}
+                        {% if form.specialization.errors %}<div class="text-danger small mt-1">{{ form.specialization.errors.0 }}</div>{% endif %}
+                        <div class="form-text small">e.g. Interventional Cardiology, Pediatric Oncology, Health Informatics</div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check mt-2">
+                            {{ form.is_active }}
+                            <label class="form-check-label fw-semibold small text-dark" for="{{ form.is_active.id_for_label }}">
+                                Account Active (permits authentication into the system)
+                            </label>
+                        </div>
+                        {% if form.is_active.errors %}<div class="text-danger small mt-1">{{ form.is_active.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <a href="{% url 'admin_user_list' %}" class="btn btn-outline-secondary btn-sm">Cancel</a>
+                    <button type="submit" class="btn btn-primary btn-sm px-3">
+                        <i class="bi bi-check2-circle me-1"></i>{{ btn_text }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

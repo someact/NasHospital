@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign In - MedResearch DMS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center pt-5">
+    <div class="col-md-5 col-lg-4">
+        <div class="card card-custom shadow-sm">
+            <div class="card-body p-4">
+                <div class="text-center mb-4">
+                    <div class="rounded-circle bg-primary-subtle text-primary d-inline-flex align-items-center justify-content-center mb-2" style="width: 54px; height: 54px;">
+                        <i class="bi bi-shield-lock-fill fs-3"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark">System Authentication</h4>
+                    {% if enable_demo_mode %}
+                        <p class="text-muted small">Enter clinical credentials or use the top Demo Switcher.</p>
+                    {% else %}
+                        <p class="text-muted small">Enter your clinical credentials to sign in.</p>
+                    {% endif %}
+                </div>
+
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Username</label>
+                        <input type="text" name="username" class="form-control" placeholder="e.g. alice, bob, charlie" required autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Password</label>
+                        <input type="password" name="password" class="form-control" placeholder="password123" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+                    </button>
+                </form>
+
+                {% if enable_demo_mode %}
+                <div class="mt-4 p-3 bg-light rounded border border-light-subtle small">
+                    <div class="fw-bold text-secondary mb-1"><i class="bi bi-info-circle me-1"></i> Pre-seeded Credentials:</div>
+                    <ul class="mb-0 ps-3 text-muted">
+                        <li><code>alice</code> / <code>password123</code> (Doctor - Author)</li>
+                        <li><code>bob</code> / <code>password123</code> (Doctor - Reviewer)</li>
+                        <li><code>charlie</code> / <code>password123</code> (Coordinator)</li>
+                        <li><code>sarah</code> / <code>password123</code> (Staff Clinician)</li>
+                        <li><code>admin</code> / <code>password123</code> (Administrator)</li>
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

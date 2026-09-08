@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block title %}Secure Viewer: {{ paper.title }} (Round {{ round_number }}) - MedResearch DMS{% endblock %}
+
+{% block extra_head %}
+<!-- Mozilla PDF.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+    body {
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    .viewer-toolbar {
+        background-color: #1e293b;
+        color: #f8fafc;
+        border-bottom: 2px solid #0284c7;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+    .viewer-canvas-container {
+        min-height: calc(100vh - 160px);
+        background-color: #334155;
+        overflow: auto;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 24px 12px;
+    }
+    #pdfCanvas {
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+        background-color: #ffffff;
+        max-width: 100%;
+    }
+    .btn-viewer {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: #f8fafc;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: all 0.15s;
+    }
+    .btn-viewer:hover {
+        background-color: rgba(255, 255, 255, 0.25);
+        color: #ffffff;
+    }
+    .btn-viewer:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Clinical Document Navigation Bar -->
+    <div class="viewer-toolbar py-2 px-3 shadow-sm">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <!-- Left: Back & Title -->
+            <div class="d-flex align-items-center gap-2">
+                {% if is_blinded_reviewer %}
+                    <a href="{% url 'doctor_dashboard' %}" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1" title="Return to Clinical Workspace">
+                        <i class="bi bi-arrow-left"></i> Workspace
+                    </a>
+                {% elif user.is_staff_viewer %}
+                    <a href="{% url 'catalog_view' %}" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1" title="Return to Catalog">
+                        <i class="bi bi-arrow-left"></i> Catalog
+                    </a>
+                {% else %}
+                    <a href="{% url 'paper_detail' paper.id %}" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1" title="Return to Dossier">
+                        <i class="bi bi-arrow-left"></i> Dossier
+                    </a>
+                {% endif %}
+                <span class="text-secondary">|</span>
+                <div>
+                    <h6 class="mb-0 fw-bold text-white text-truncate" style="max-width: 400px;">
+                        <i class="bi bi-shield-shaded text-info me-1"></i>{{ paper.title }}
+                    </h6>
+                    <small class="text-white-50">
+                        {% if is_blinded_reviewer %}
+                            Investigator: <strong>[Blinded for Peer Review]</strong> &bull; {{ paper.department }} &bull; 
+                        {% else %}
+                            Investigator: <strong>{{ paper.author.get_full_name|default:paper.author.username }}</strong> &bull; {{ paper.department }} &bull; 
+                        {% endif %}
+                        <span class="badge bg-primary-subtle text-primary">Round {{ round_number }}</span>
+                    </small>
+                </div>
+            </div>
+
+            <!-- Center: Page Controls & Zoom -->
+            <div class="d-flex align-items-center gap-2">
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-viewer" id="prevPageBtn" title="Previous Page">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <span class="btn btn-viewer disabled text-white fw-bold px-3">
+                        Page <span id="pageNum">1</span> / <span id="pageCount">-</span>
+                    </span>
+                    <button type="button" class="btn btn-viewer" id="nextPageBtn" title="Next Page">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+
+                <div class="btn-group btn-group-sm ms-2" role="group">
+                    <button type="button" class="btn btn-viewer" id="zoomOutBtn" title="Zoom Out">
+                        <i class="bi bi-zoom-out"></i>
+                    </button>
+                    <span class="btn btn-viewer disabled text-white px-2" id="zoomLevel">120%</span>
+                    <button type="button" class="btn btn-viewer" id="zoomInBtn" title="Zoom In">
+                        <i class="bi bi-zoom-in"></i>
+                    </button>
+                    <button type="button" class="btn btn-viewer" id="fitWidthBtn" title="Fit to Width">
+                        <i class="bi bi-arrows-expand"></i> Fit
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right: Round Switcher & Security Status -->
+            <div class="d-flex align-items-center gap-2">
+                {% if all_rounds.count > 1 %}
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-viewer dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            Round {{ round_number }}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark shadow">
+                            {% for r in all_rounds %}
+                                <li>
+                                    <a class="dropdown-item {% if r.round_number == round_number %}active{% endif %}" href="{% url 'paper_pdf_viewer' paper.id %}?round={{ r.round_number }}">
+                                        Round {{ r.round_number }} ({{ r.submitted_at|date:"M d, Y" }})
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle d-flex align-items-center gap-1">
+                    <i class="bi bi-shield-lock-fill"></i> Watermarked & Protected
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Security Toast Alert -->
+    <div id="securityAlert" class="alert alert-warning alert-dismissible fade position-fixed top-0 end-0 m-3 shadow-lg" style="z-index: 2000; display: none;" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <span id="securityAlertMsg">Institutional Policy: Downloading and printing restricted.</span>
+    </div>
+
+    <!-- Viewer Canvas Viewport -->
+    <div class="viewer-canvas-container" id="canvasContainer">
+        <div class="text-center" id="loadingSpinner">
+            <div class="spinner-border text-info mb-2" role="status"></div>
+            <div class="text-white-50 small">Decrypting and preparing watermarked clinical canvas...</div>
+        </div>
+        <canvas id="pdfCanvas" style="display: none;"></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Configure PDF.js Worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const pdfUrl = "{{ pdf_stream_url|escapejs }}";
+    const watermarkText = "{{ watermark_text|escapejs }}";
+
+    let pdfDoc = null;
+    let pageNum = 1;
+    let pageRendering = false;
+    let pageNumPending = null;
+    let scale = 1.25;
+
+    const canvas = document.getElementById('pdfCanvas');
+    const ctx = canvas.getContext('2d');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+
+    // UI elements
+    const pageNumSpan = document.getElementById('pageNum');
+    const pageCountSpan = document.getElementById('pageCount');
+    const zoomLevelSpan = document.getElementById('zoomLevel');
+    const prevBtn = document.getElementById('prevPageBtn');
+    const nextBtn = document.getElementById('nextPageBtn');
+
+    function showSecurityToast(msg) {
+        const alertBox = document.getElementById('securityAlert');
+        const msgSpan = document.getElementById('securityAlertMsg');
+        msgSpan.textContent = msg;
+        alertBox.style.display = 'block';
+        alertBox.classList.add('show');
+        setTimeout(() => {
+            alertBox.classList.remove('show');
+            setTimeout(() => { alertBox.style.display = 'none'; }, 200);
+        }, 3500);
+    }
+
+    // 2. Anti-Tamper: Block Right-Click Context Menu
+    document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        showSecurityToast("Right-click context menu is disabled for confidential hospital records.");
+        return false;
+    });
+
+    // 3. Anti-Tamper: Intercept and Block Ctrl+S, Ctrl+P, Cmd+S, Cmd+P
+    window.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S' || e.key === 'p' || e.key === 'P')) {
+            e.preventDefault();
+            e.stopPropagation();
+            showSecurityToast("Institutional Security Restriction: Printing and downloading are blocked.");
+            return false;
+        }
+    });
+
+    // 4. Render Page & Apply Diagonal Canvas Watermark
+    function renderPage(num) {
+        pageRendering = true;
+        pdfDoc.getPage(num).then(function(page) {
+            const viewport = page.getViewport({ scale: scale });
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            const renderContext = {
+                canvasContext: ctx,
+                viewport: viewport
+            };
+
+            const renderTask = page.render(renderContext);
+            renderTask.promise.then(function() {
+                // Apply dynamic diagonal canvas watermark
+                applyCanvasWatermark(ctx, canvas.width, canvas.height, watermarkText);
+
+                pageRendering = false;
+                if (pageNumPending !== null) {
+                    renderPage(pageNumPending);
+                    pageNumPending = null;
+                }
+            });
+        });
+
+        // Update navigation states
+        pageNumSpan.textContent = num;
+        prevBtn.disabled = num <= 1;
+        nextBtn.disabled = num >= pdfDoc.numPages;
+    }
+
+    function applyCanvasWatermark(context, width, height, text) {
+        context.save();
+        context.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        context.fillStyle = 'rgba(100, 116, 139, 0.22)';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+
+        // Rotate canvas around center
+        context.translate(width / 2, height / 2);
+        context.rotate(-45 * Math.PI / 180);
+        context.translate(-width / 2, -height / 2);
+
+        const stepY = 140;
+        const stepX = 420;
+        const startY = -height * 1.5;
+        const endY = height * 2.5;
+        const startX = -width * 1.5;
+        const endX = width * 2.5;
+
+        for (let y = startY; y < endY; y += stepY) {
+            for (let x = startX; x < endX; x += stepX) {
+                context.fillText(text, x, y);
+            }
+        }
+        context.restore();
+    }
+
+    function queueRenderPage(num) {
+        if (pageRendering) {
+            pageNumPending = num;
+        } else {
+            renderPage(num);
+        }
+    }
+
+    function onPrevPage() {
+        if (pageNum <= 1) return;
+        pageNum--;
+        queueRenderPage(pageNum);
+    }
+
+    function onNextPage() {
+        if (pageNum >= pdfDoc.numPages) return;
+        pageNum++;
+        queueRenderPage(pageNum);
+    }
+
+    prevBtn.addEventListener('click', onPrevPage);
+    nextBtn.addEventListener('click', onNextPage);
+
+    // Zoom Handlers
+    document.getElementById('zoomInBtn').addEventListener('click', function() {
+        if (scale >= 3.0) return;
+        scale += 0.2;
+        zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
+        queueRenderPage(pageNum);
+    });
+
+    document.getElementById('zoomOutBtn').addEventListener('click', function() {
+        if (scale <= 0.6) return;
+        scale -= 0.2;
+        zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
+        queueRenderPage(pageNum);
+    });
+
+    document.getElementById('fitWidthBtn').addEventListener('click', function() {
+        const container = document.getElementById('canvasContainer');
+        const containerWidth = container.clientWidth - 48;
+        pdfDoc.getPage(pageNum).then(function(page) {
+            const viewport = page.getViewport({ scale: 1.0 });
+            scale = containerWidth / viewport.width;
+            zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
+            queueRenderPage(pageNum);
+        });
+    });
+
+    // 5. Load and Initialize PDF Document
+    pdfjsLib.getDocument(pdfUrl).promise.then(function(doc) {
+        pdfDoc = doc;
+        pageCountSpan.textContent = doc.numPages;
+        loadingSpinner.style.display = 'none';
+        canvas.style.display = 'block';
+        renderPage(pageNum);
+    }).catch(function(err) {
+        loadingSpinner.innerHTML = '';
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger';
+        alertDiv.textContent = 'Error loading PDF document: ' + (err && err.message ? err.message : 'Unable to render manuscript.');
+        loadingSpinner.appendChild(alertDiv);
+    });
+});
+</script>
+{% endblock %}

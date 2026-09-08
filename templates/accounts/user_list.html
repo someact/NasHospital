@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Clinician Directory - IT Admin Portal{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-2 border-bottom">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1 small">
+                    <li class="breadcrumb-item"><a href="{% url 'admin_portal_dashboard' %}" class="text-decoration-none">Admin Portal</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Clinician Directory</li>
+                </ol>
+            </nav>
+            <h2 class="h3 fw-bold text-dark mb-1">
+                <i class="bi bi-people-fill text-primary me-2"></i>Clinician & User Directory
+            </h2>
+            <p class="text-muted small mb-0">Manage hospital staff accounts, department specializations, and 2FA credentials.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'admin_portal_dashboard' %}" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1">
+                <i class="bi bi-arrow-left"></i> Dashboard
+            </a>
+            <a href="{% url 'admin_user_create' %}" class="btn btn-primary btn-sm d-flex align-items-center gap-1">
+                <i class="bi bi-person-plus-fill"></i> Register Clinician
+            </a>
+        </div>
+    </div>
+
+    <!-- Search & Filters -->
+    <div class="card card-custom p-3 mb-4">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-md-6 col-lg-5">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" name="q" value="{{ search }}" class="form-control" placeholder="Search by name, username, department, or specialization...">
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <select name="role" class="form-select form-select-sm">
+                    <option value="">-- All Roles --</option>
+                    {% for code, label in roles %}
+                        <option value="{{ code }}" {% if role_filter == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-sm btn-primary flex-grow-1">Filter</button>
+                {% if search or role_filter %}
+                    <a href="{% url 'admin_user_list' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Users Table -->
+    <div class="card card-custom">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small text-uppercase">
+                    <tr>
+                        <th>User</th>
+                        <th>Role & Department</th>
+                        <th>Specialization</th>
+                        <th>2FA Status</th>
+                        <th>Account Status</th>
+                        <th class="text-end pe-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="small">
+                    {% for u in users %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark">{{ u.get_full_name|default:u.username }}</div>
+                                <div class="text-muted small">@{{ u.username }} &bull; {{ u.email|default:"no email" }}</div>
+                            </td>
+                            <td>
+                                <span class="badge {% if u.role == 'DOCTOR' %}bg-primary{% elif u.role == 'COORDINATOR' %}bg-warning text-dark{% elif u.role == 'ADMIN' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                    {{ u.get_role_display }}
+                                </span>
+                                {% if u.department %}
+                                    <div class="text-secondary small mt-1"><i class="bi bi-building me-1"></i>{{ u.department }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if u.specialization %}
+                                    <span class="badge bg-light text-dark border">{{ u.specialization }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if u.is_totp_enabled %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                        <i class="bi bi-shield-check me-1"></i>2FA Active
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary-subtle text-secondary border">
+                                        <i class="bi bi-shield-x me-1"></i>Disabled
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if u.is_active %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                                {% else %}
+                                    <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Suspended</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-3">
+                                <div class="d-inline-flex gap-1">
+                                    <!-- Edit Profile -->
+                                    <a href="{% url 'admin_user_edit' u.id %}" class="btn btn-sm btn-outline-primary" title="Edit Clinician">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+
+                                    <!-- Reset 2FA (if enabled) -->
+                                    {% if u.is_totp_enabled %}
+                                        <form method="post" action="{% url 'admin_user_reset_2fa' u.id %}" class="d-inline" onsubmit="return confirm('Are you sure you want to reset 2FA for {{ u.get_full_name|default:u.username }}? This will remove their registered authenticator device.');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-warning" title="Emergency 2FA Reset">
+                                                <i class="bi bi-shield-slash"></i>
+                                            </button>
+                                        </form>
+                                    {% endif %}
+
+                                    <!-- Toggle Active / Suspend (prevent deactivating self) -->
+                                    {% if u.id != request.user.id %}
+                                        <form method="post" action="{% url 'admin_user_toggle_active' u.id %}" class="d-inline" onsubmit="return confirm('Toggle active status for {{ u.username }}?');">
+                                            {% csrf_token %}
+                                            {% if u.is_active %}
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Suspend Account">
+                                                    <i class="bi bi-person-slash"></i>
+                                                </button>
+                                            {% else %}
+                                                <button type="submit" class="btn btn-sm btn-outline-success" title="Reactivate Account">
+                                                    <i class="bi bi-person-check"></i>
+                                                </button>
+                                            {% endif %}
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                <i class="bi bi-info-circle me-1"></i> No clinician accounts found matching your query.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

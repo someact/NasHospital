@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Submit New Manuscript - MedResearch DMS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-3">
+    <div class="col-lg-8">
+        <div class="card card-custom shadow-sm">
+            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+                <div>
+                    <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-file-earmark-plus text-primary me-2"></i>New Clinical Research Manuscript Submission</h5>
+                    <small class="text-muted">Initiate formal peer review triage through Coordinator C.</small>
+                </div>
+                <a href="{% url 'doctor_dashboard' %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i> Back to Workspace
+                </a>
+            </div>
+
+            <div class="card-body p-4">
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Manuscript Title *</label>
+                        {{ form.title }}
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Category *</label>
+                            {{ form.category }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Clinical Department *</label>
+                            {{ form.department }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Co-Authors (Optional)</label>
+                        {{ form.co_authors }}
+                        <div class="form-text small">List participating co-investigators, affiliations, and degrees.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Structured Abstract *</label>
+                        {{ form.abstract }}
+                        <div class="form-text small">Include Background, Methods, Results, and Clinical Conclusions.</div>
+                    </div>
+
+                    <div class="p-3 bg-light rounded border mb-3">
+                        <h6 class="fw-bold text-dark mb-2"><i class="bi bi-shield-lock-fill text-primary me-1"></i>Protected Full-Text Document Upload (Round 1)</h6>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small">Full Manuscript PDF *</label>
+                            {{ form.pdf_file }}
+                            <div class="form-text small">Files are obfuscated and stored in air-gapped protected storage.</div>
+                        </div>
+
+                        <div class="mb-0">
+                            <label class="form-label fw-semibold small">Author Submission Remarks (Optional)</label>
+                            {{ form.summary_notes }}
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 pt-2">
+                        <a href="{% url 'doctor_dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-4 fw-semibold">
+                            <i class="bi bi-send-check me-1"></i> Submit for Coordinator Triage
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

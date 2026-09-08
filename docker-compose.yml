@@ -1,0 +1,76 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: medresearch_db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-medresearch_dms}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-medresearch_dms}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: medresearch_web
+    restart: unless-stopped
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn --bind 0.0.0.0:8000 --workers 3 medresearch_dms.wsgi:application"
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-medresearch-production-super-secret-key-change-me}
+      - DEBUG=${DEBUG:-False}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,web,nginx}
+      - MASTER_ENCRYPTION_KEY=${MASTER_ENCRYPTION_KEY:-uK8wJzFq1-3Lq6tB5_zZ0XyP_sO7uR9vE2mN4kC8wA=}
+      - HOSPITAL_DOMAIN=${HOSPITAL_DOMAIN:-medresearch.hospital.internal}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-medresearch_dms}
+      - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+      - EMAIL_HOST=mailpit
+      - EMAIL_PORT=1025
+    volumes:
+      - protected_media:/app/protected_media
+      - static_volume:/app/staticfiles
+      - backups_volume:/app/backups
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    expose:
+      - "8000"
+
+  nginx:
+    image: nginx:alpine
+    container_name: medresearch_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_volume:/var/www/static:ro
+    depends_on:
+      - web
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: medresearch_mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web Inbox
+
+volumes:
+  pg_data:
+  protected_media:
+  static_volume:
+  backups_volume:

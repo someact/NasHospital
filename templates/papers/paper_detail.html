@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+
+{% block title %}Tracking Dossier: {{ paper.title }} - MedResearch DMS{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Left Column: Manuscript Summary -->
+    <div class="col-lg-4">
+        <div class="card card-custom shadow-sm mb-4">
+            <div class="card-header bg-white py-3 border-bottom">
+                <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-file-earmark-text text-primary me-2"></i>Manuscript Dossier</h6>
+            </div>
+            <div class="card-body p-3">
+                <h5 class="fw-bold text-dark">{{ paper.title }}</h5>
+                <div class="mb-2">
+                    <span class="badge bg-light text-dark border">{{ paper.category }}</span>
+                    <span class="badge bg-light text-dark border">{{ paper.department }}</span>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="text-muted small fw-semibold text-uppercase">Lifecycle Status</label>
+                    <div>
+                        {% if paper.current_status == 'PUBLISHED' %}
+                            <span class="badge bg-success badge-status"><i class="bi bi-check-circle-fill me-1"></i> PUBLISHED</span>
+                        {% elif paper.current_status == 'RETRACTED_FOR_REVISION' %}
+                            <span class="badge bg-danger badge-status"><i class="bi bi-arrow-counterclockwise me-1"></i> RECALLED FOR REVISION</span>
+                        {% elif paper.current_status == 'REVISION_REQUIRED' %}
+                            <span class="badge bg-danger badge-status"><i class="bi bi-arrow-repeat me-1"></i> REVISION REQUIRED</span>
+                        {% elif paper.current_status == 'PENDING_COORD' %}
+                            <span class="badge bg-warning text-dark badge-status"><i class="bi bi-clock me-1"></i> PENDING TRIAGE</span>
+                        {% elif paper.current_status == 'PENDING_ADVISOR' %}
+                            <span class="badge bg-primary badge-status"><i class="bi bi-eyeglasses me-1"></i> IN PEER REVIEW</span>
+                        {% elif paper.current_status == 'ADVISOR_COMMENTED' %}
+                            <span class="badge bg-info badge-status"><i class="bi bi-chat-left-dots me-1"></i> REVIEWS COMPLETE</span>
+                        {% else %}
+                            <span class="badge bg-secondary badge-status">{{ paper.get_current_status_display }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="text-muted small fw-semibold text-uppercase">Primary Investigator</label>
+                    <div class="fw-semibold text-dark">{{ paper.author.get_full_name|default:paper.author.username }}</div>
+                    {% if paper.co_authors %}
+                        <div class="text-muted small fst-italic mt-1"><i class="bi bi-people me-1"></i>{{ paper.co_authors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="text-muted small fw-semibold text-uppercase">Submission Date</label>
+                    <div class="text-dark small">{{ paper.created_at|date:"F d, Y H:i" }}</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="text-muted small fw-semibold text-uppercase">Abstract</label>
+                    <p class="text-secondary small mb-0" style="text-align: justify;">{{ paper.abstract }}</p>
+                </div>
+
+                {% if paper.retraction_reason %}
+                    <div class="alert alert-warning py-2 px-3 small mt-3">
+                        <div class="fw-bold text-dark mb-1"><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> Retraction & Revision Directive:</div>
+                        <p class="mb-0 text-dark">{{ paper.retraction_reason }}</p>
+                    </div>
+                {% endif %}
+
+                {% if is_author and paper.current_status == 'REVISION_REQUIRED' or is_author and paper.current_status == 'RETRACTED_FOR_REVISION' %}
+                    <hr>
+                    <a href="{% url 'paper_revision' paper.id %}" class="btn btn-danger w-100 fw-semibold">
+                        <i class="bi bi-upload me-1"></i> Submit Round {{ paper.latest_round.round_number|add:1 }} Revision
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Multi-Round History & Air-Gapped Coordinator Letters -->
+    <div class="col-lg-8">
+        <div class="card card-custom shadow-sm mb-4">
+            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+                <div>
+                    <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-clock-history text-primary me-2"></i>Multi-Round Review History</h5>
+                    <small class="text-muted">Air-gapped double-blind mediation history.</small>
+                </div>
+                <span class="badge bg-primary-subtle text-primary">{{ rounds.count }} Round(s) Recorded</span>
+            </div>
+
+            <div class="card-body p-4">
+                <!-- Air-Gap Security Notice -->
+                <div class="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 mb-4">
+                    <i class="bi bi-shield-check fs-5"></i>
+                    <div>
+                        <strong>Air-Gapped Proxy Protocol:</strong> Reviewer identities and raw peer comments are strictly withheld. Author directives are synthesized and delivered via Coordinator C.
+                    </div>
+                </div>
+
+                <div class="timeline">
+                    {% for r in rounds %}
+                        <div class="border rounded p-3 mb-4 bg-white shadow-sm position-relative">
+                            <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-primary fs-6 px-3 py-1">Round {{ r.round_number }}</span>
+                                    <span class="text-muted small">Submitted {{ r.submitted_at|date:"M d, Y H:i" }}</span>
+                                </div>
+                                {% if r.pdf_file %}
+                                    <a href="{% url 'paper_pdf_viewer' paper.id %}?round={{ r.round_number }}" class="btn btn-sm btn-outline-danger fw-semibold">
+                                        <i class="bi bi-file-earmark-pdf-fill me-1"></i> View R{{ r.round_number }} PDF
+                                    </a>
+                                {% endif %}
+                            </div>
+
+                            {% if r.summary_notes %}
+                                <div class="mb-3">
+                                    <span class="text-muted small fw-semibold text-uppercase">Author's Submission Remarks:</span>
+                                    <div class="p-2 bg-light rounded text-dark small mt-1">{{ r.summary_notes }}</div>
+                                </div>
+                            {% endif %}
+
+                            <!-- Coordinator Letter (The only feedback author can see!) -->
+                            {% if r.coordinator_letter %}
+                                <div class="card border-primary-subtle bg-primary-subtle bg-opacity-10 mt-3">
+                                    <div class="card-header bg-transparent py-2 border-primary-subtle d-flex align-items-center justify-content-between">
+                                        <div class="fw-bold text-primary small">
+                                            <i class="bi bi-envelope-paper-fill me-1"></i> Coordinator C Decision Letter (Round {{ r.round_number }})
+                                        </div>
+                                        <span class="badge {% if r.coordinator_letter.decision == 'APPROVED' %}bg-success{% else %}bg-danger{% endif %} small">
+                                            {{ r.coordinator_letter.get_decision_display }}
+                                        </span>
+                                    </div>
+                                    <div class="card-body py-3">
+                                        <div class="font-monospace small text-dark" style="white-space: pre-wrap;">{{ r.coordinator_letter.consolidated_comment }}</div>
+                                        <div class="text-muted small mt-2 text-end">
+                                            Synthesized by <strong>{{ r.coordinator_letter.coordinator.get_full_name|default:r.coordinator_letter.coordinator.username }}</strong> &bull; {{ r.coordinator_letter.sent_at|date:"M d, Y H:i" }}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="text-muted small fst-italic p-2 bg-light rounded text-center">
+                                    <i class="bi bi-hourglass-split me-1"></i> Coordinator synthesis and decision letter pending for Round {{ r.round_number }}.
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

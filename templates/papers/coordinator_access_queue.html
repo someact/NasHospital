@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+{% block title %}Access Ticket Queue - MedResearch DMS{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-4">
+    <div class="col-md-8">
+        <h3 class="fw-bold text-dark mb-1">
+            <i class="bi bi-key-fill text-success me-2"></i>Coordinator Access Pass Review Queue
+        </h3>
+        <p class="text-muted mb-0">Evaluate clinical staff requests for time-bound reading access to published full-text manuscripts.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Pending Requests Queue -->
+    <div class="col-12">
+        <div class="card card-custom shadow-sm mb-4">
+            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+                <div>
+                    <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-clock-history text-warning me-2"></i>Pending Access Tickets</h5>
+                    <small class="text-muted">Awaiting coordinator evaluation.</small>
+                </div>
+                <span class="badge bg-warning text-dark">{{ pending_tickets.count }} Pending</span>
+            </div>
+
+            <div class="card-body p-0">
+                {% if pending_tickets %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Clinician / Requester</th>
+                                    <th style="width: 30%;">Requested Manuscript</th>
+                                    <th>Pass Duration</th>
+                                    <th>Clinical Justification</th>
+                                    <th>Requested On</th>
+                                    <th class="text-end">Coordinator Decision</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ticket in pending_tickets %}
+                                <tr class="clickable-row" data-href="{% url 'paper_detail' ticket.paper.id %}">
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ ticket.requester.get_full_name|default:ticket.requester.username }}</div>
+                                        <div class="text-muted small">{{ ticket.requester.department|default:"General Staff" }} &bull; {{ ticket.requester.get_role_display }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">{{ ticket.paper.title }}</div>
+                                        <span class="badge bg-light text-dark border">{{ ticket.paper.category }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary-subtle text-primary">{{ ticket.get_duration_days_display }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="text-muted small p-2 bg-light rounded" style="max-width: 320px;">{{ ticket.reason }}</div>
+                                    </td>
+                                    <td class="text-muted small">
+                                        {{ ticket.created_at|date:"M d, Y H:i" }}
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-flex justify-content-end gap-2">
+                                            <form method="POST">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="ticket_id" value="{{ ticket.id }}">
+                                                <input type="hidden" name="action" value="approve">
+                                                <button type="submit" class="btn btn-sm btn-success fw-semibold">
+                                                    <i class="bi bi-check-lg me-1"></i> Grant Pass ({{ ticket.duration_days }}d)
+                                                </button>
+                                            </form>
+                                            <form method="POST">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="ticket_id" value="{{ ticket.id }}">
+                                                <input type="hidden" name="action" value="reject">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-x-lg"></i> Deny
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-check2-circle fs-2 d-block mb-2 text-success"></i>
+                        <p class="mb-0">No pending access requests. All tickets processed.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Passes -->
+    <div class="col-12">
+        <div class="card card-custom shadow-sm">
+            <div class="card-header bg-white py-3 border-bottom">
+                <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-shield-check text-success me-2"></i>Active & Expired Access Passes Archive</h6>
+            </div>
+            <div class="card-body p-0">
+                {% if active_tickets %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Clinician</th>
+                                    <th>Manuscript</th>
+                                    <th>Approved By</th>
+                                    <th>Status & Expiry Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ticket in active_tickets %}
+                                <tr class="clickable-row" data-href="{% url 'paper_detail' ticket.paper.id %}">
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ ticket.requester.get_full_name }}</div>
+                                        <div class="text-muted small">{{ ticket.requester.department }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">{{ ticket.paper.title }}</div>
+                                    </td>
+                                    <td class="text-muted small">
+                                        {{ ticket.reviewed_by.get_full_name|default:"Coordinator C" }} on {{ ticket.reviewed_at|date:"M d, Y" }}
+                                    </td>
+                                    <td>
+                                        {% if ticket.is_active %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                <i class="bi bi-check-circle-fill me-1"></i> Active (Expires: {{ ticket.expires_at|date:"M d, Y H:i" }})
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">
+                                                <i class="bi bi-x-circle me-1"></i> Expired on {{ ticket.expires_at|date:"M d, Y" }}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <p class="mb-0">No passes recorded yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

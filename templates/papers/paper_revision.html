@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Submit Revision Round {{ next_round_number }} - MedResearch DMS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-3">
+    <div class="col-lg-8">
+        <div class="card card-custom shadow-sm mb-4">
+            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+                <div>
+                    <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-arrow-repeat text-danger me-2"></i>Upload Manuscript Revision (Round {{ next_round_number }})</h5>
+                    <small class="text-muted">Manuscript: <strong>{{ paper.title }}</strong></small>
+                </div>
+                <a href="{% url 'paper_detail' paper.id %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i> View Dossier
+                </a>
+            </div>
+
+            <div class="card-body p-4">
+                {% if latest_letter %}
+                    <div class="alert alert-warning border-warning shadow-sm mb-4">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-envelope-paper-fill fs-5 text-warning-emphasis"></i>
+                            <h6 class="fw-bold mb-0 text-warning-emphasis">Coordinator Revision Directives (Round {{ latest_letter.round.round_number }})</h6>
+                        </div>
+                        <div class="bg-white p-3 rounded border text-dark font-monospace small" style="white-space: pre-wrap;">{{ latest_letter.consolidated_comment }}</div>
+                        <div class="text-muted small mt-2">Dispatched by Coordinator C on {{ latest_letter.sent_at|date:"M d, Y H:i" }}</div>
+                    </div>
+                {% endif %}
+
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Revised Full Manuscript PDF *</label>
+                        {{ form.pdf_file }}
+                        <div class="form-text small">Please upload the complete manuscript with revisions incorporated.</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Response to Coordinator Revision Directives *</label>
+                        {{ form.summary_notes }}
+                        <div class="form-text small">Detail point-by-point modifications addressing the coordinator directive.</div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 pt-2">
+                        <a href="{% url 'paper_detail' paper.id %}" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-danger px-4 fw-semibold">
+                            <i class="bi bi-upload me-1"></i> Dispatch Revision Round {{ next_round_number }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

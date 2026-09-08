@@ -1,0 +1,321 @@
+{% extends 'base.html' %}
+
+{% block title %}Doctor Workspace - MedResearch DMS{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-4">
+    <div class="col-md-8">
+        <h3 class="fw-bold text-dark mb-1">
+            <i class="bi bi-heart-pulse-fill text-danger me-2"></i>Doctor Clinical Workspace
+        </h3>
+        <p class="text-muted mb-0">
+            Unified portal for <strong>{{ user.get_full_name|default:user.username }}</strong> &bull; 
+            <span class="badge bg-light text-dark border">{{ user.department|default:"General Medicine" }}</span> &bull; 
+            <span class="text-secondary">{{ user.specialization|default:"Clinical Research" }}</span>
+        </p>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <a href="{% url 'paper_submit' %}" class="btn btn-primary shadow-sm fw-semibold">
+            <i class="bi bi-file-earmark-plus me-1"></i> New Research Submission
+        </a>
+    </div>
+</div>
+
+<!-- Stats Counter Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card card-custom p-3 border-start border-4 border-primary">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="text-muted small fw-semibold text-uppercase">My Authored Papers</div>
+                    <div class="fs-3 fw-bold text-dark">{{ my_papers.count }}</div>
+                </div>
+                <div class="bg-primary-subtle text-primary p-3 rounded-circle">
+                    <i class="bi bi-journal-text fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-custom p-3 border-start border-4 border-warning">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="text-muted small fw-semibold text-uppercase">Pending Peer Reviews</div>
+                    <div class="fs-3 fw-bold text-warning">{{ pending_reviews_count }}</div>
+                </div>
+                <div class="bg-warning-subtle text-warning p-3 rounded-circle">
+                    <i class="bi bi-clipboard2-pulse fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-custom p-3 border-start border-4 border-success">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="text-muted small fw-semibold text-uppercase">Published Papers</div>
+                    <div class="fs-3 fw-bold text-success">{{ published_count }}</div>
+                </div>
+                <div class="bg-success-subtle text-success p-3 rounded-circle">
+                    <i class="bi bi-check2-all fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Two-Tab Unified Doctor Interface -->
+<div class="card card-custom">
+    <div class="card-header bg-white border-bottom p-0">
+        <ul class="nav nav-tabs card-header-tabs m-0 px-3 pt-2" id="doctorTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-semibold px-4 py-3 {% if active_tab == 'my_researches' %}active text-primary border-primary border-bottom-0{% else %}text-muted{% endif %}" 
+                        id="researches-tab" data-bs-toggle="tab" data-bs-target="#researches-pane" type="button" role="tab">
+                    <i class="bi bi-folder2-open me-2"></i>My Researches (งานวิจัยของฉัน)
+                    <span class="badge bg-secondary-subtle text-dark ms-1">{{ my_papers.count }}</span>
+                    {% if doctor_revision_required_count > 0 %}
+                        <span class="badge bg-danger ms-1">{{ doctor_revision_required_count }} action required</span>
+                    {% endif %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-semibold px-4 py-3 {% if active_tab == 'assigned_reviews' %}active text-primary border-primary border-bottom-0{% else %}text-muted{% endif %}" 
+                        id="reviews-tab" data-bs-toggle="tab" data-bs-target="#reviews-pane" type="button" role="tab">
+                    <i class="bi bi-ui-checks me-2"></i>Assigned Peer Reviews (งานที่ได้รับมอบหมายให้ตรวจ)
+                    {% if pending_reviews_count > 0 %}
+                        <span class="badge bg-warning text-dark ms-1">{{ pending_reviews_count }} pending</span>
+                    {% else %}
+                        <span class="badge bg-secondary-subtle text-dark ms-1">{{ assigned_reviews.count }}</span>
+                    {% endif %}
+                </button>
+            </li>
+        </ul>
+    </div>
+
+    <div class="card-body p-4">
+        <!-- Client-Side Instant Search Bar -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                    <input type="text" id="workspaceSearchInput" class="form-control border-start-0 ps-0" placeholder="Instant search by title, abstract, department, round, or status...">
+                    <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn" title="Clear search"><i class="bi bi-x-lg"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="doctorTabContent">
+            
+            <!-- TAB 1: My Researches -->
+            <div class="tab-pane fade {% if active_tab == 'my_researches' %}show active{% endif %}" id="researches-pane" role="tabpanel">
+                {% if my_papers %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 filterable-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 40%;">Title & Abstract</th>
+                                    <th>Category & Dept</th>
+                                    <th>Round</th>
+                                    <th>Lifecycle Status</th>
+                                    <th>Submitted</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for paper in my_papers %}
+                                <tr class="clickable-row" data-href="{% url 'paper_detail' paper.id %}">
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ paper.title }}</div>
+                                        <div class="text-muted small text-truncate" style="max-width: 480px;">{{ paper.abstract }}</div>
+                                        {% if paper.co_authors %}
+                                            <div class="text-secondary small fst-italic mt-1"><i class="bi bi-people me-1"></i>{{ paper.co_authors }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">{{ paper.category }}</span>
+                                        <div class="text-muted small mt-1">{{ paper.department }}</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info-subtle text-info-emphasis px-2 py-1">
+                                             Round {{ paper.latest_round.round_number|default:1 }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if paper.current_status == 'PUBLISHED' %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle badge-status">
+                                                <i class="bi bi-check-circle-fill me-1"></i> PUBLISHED
+                                            </span>
+                                        {% elif paper.current_status == 'RETRACTED_FOR_REVISION' %}
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle badge-status">
+                                                <i class="bi bi-arrow-counterclockwise me-1"></i> RECALLED FOR REVISION
+                                            </span>
+                                        {% elif paper.current_status == 'REVISION_REQUIRED' %}
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle badge-status">
+                                                <i class="bi bi-arrow-repeat me-1"></i> REVISION REQUIRED
+                                            </span>
+                                        {% elif paper.current_status == 'PENDING_COORD' %}
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle badge-status">
+                                                <i class="bi bi-clock me-1"></i> PENDING TRIAGE
+                                            </span>
+                                        {% elif paper.current_status == 'PENDING_ADVISOR' %}
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle badge-status">
+                                                <i class="bi bi-eyeglasses me-1"></i> IN PEER REVIEW
+                                            </span>
+                                        {% elif paper.current_status == 'ADVISOR_COMMENTED' %}
+                                            <span class="badge bg-info-subtle text-info border border-info-subtle badge-status">
+                                                <i class="bi bi-chat-left-dots me-1"></i> REVIEWS COMPLETE
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary badge-status">{{ paper.get_current_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-muted small">
+                                        {{ paper.created_at|date:"M d, Y" }}
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'paper_detail' paper.id %}" class="btn btn-outline-primary" title="View Progress Tracking Dossier">
+                                                <i class="bi bi-eye"></i> Dossier
+                                            </a>
+                                            {% if paper.current_status == 'REVISION_REQUIRED' or paper.current_status == 'RETRACTED_FOR_REVISION' %}
+                                                <a href="{% url 'paper_revision' paper.id %}" class="btn btn-danger" title="Upload Revision Round">
+                                                    <i class="bi bi-upload"></i> Submit R{{ paper.latest_round.round_number|add:1 }}
+                                                </a>
+                                            {% endif %}
+                                            {% if paper.latest_round and paper.latest_round.pdf_file %}
+                                                <a href="{% url 'paper_pdf_viewer' paper.id %}?round={{ paper.latest_round.round_number }}" class="btn btn-outline-danger" title="Secure PDF Viewer with Dynamic Watermark">
+                                                    <i class="bi bi-file-earmark-pdf-fill"></i> PDF
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-journal-x fs-1 d-block mb-3 text-secondary"></i>
+                        <h5>No manuscripts submitted yet</h5>
+                        <p class="small">Submit your clinical trial or medical research paper to begin the peer-review cycle.</p>
+                        <a href="{% url 'paper_submit' %}" class="btn btn-primary mt-2">
+                            <i class="bi bi-file-earmark-plus me-1"></i> Submit First Research Paper
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- TAB 2: Assigned Peer Reviews -->
+            <div class="tab-pane fade {% if active_tab == 'assigned_reviews' %}show active{% endif %}" id="reviews-pane" role="tabpanel">
+                {% if assigned_reviews %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 filterable-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 45%;">Manuscript Title</th>
+                                    <th>Department</th>
+                                    <th>Round</th>
+                                    <th>Assigned On</th>
+                                    <th>Review Status</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in assigned_reviews %}
+                                <tr class="clickable-row" data-href="{% url 'review_workspace' item.round.paper.id %}">
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ item.round.paper.title }}</div>
+                                        <div class="text-muted small text-truncate" style="max-width: 460px;">{{ item.round.paper.abstract }}</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">{{ item.round.paper.department }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info-subtle text-info-emphasis px-2 py-1">Round {{ item.round.round_number }}</span>
+                                    </td>
+                                    <td class="text-muted small">
+                                        {{ item.assigned_at|date:"M d, Y" }}
+                                    </td>
+                                    <td>
+                                        {% if item.is_completed %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle badge-status">
+                                                <i class="bi bi-check-circle-fill me-1"></i> Critique Submitted
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle badge-status">
+                                                <i class="bi bi-clock-history me-1"></i> Pending Review
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="{% url 'review_workspace' item.round.paper.id %}" 
+                                           class="btn btn-sm {% if item.is_completed %}btn-outline-secondary{% else %}btn-primary fw-semibold shadow-sm{% endif %}">
+                                            {% if item.is_completed %}
+                                                <i class="bi bi-pencil-square me-1"></i> Update Critique
+                                            {% else %}
+                                                <i class="bi bi-journal-check me-1"></i> Open Review Desk
+                                            {% endif %}
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox fs-1 d-block mb-3 text-secondary"></i>
+                        <h5>No peer-review assignments currently pending</h5>
+                        <p class="small">When Research Coordinator assigns manuscripts matching your specialty, they will appear here.</p>
+                    </div>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('workspaceSearchInput');
+    const clearBtn = document.getElementById('clearSearchBtn');
+
+    if (searchInput) {
+        function filterRows() {
+            const query = searchInput.value.toLowerCase().trim();
+            const activePane = document.querySelector('.tab-pane.active');
+            if (!activePane) return;
+            const rows = activePane.querySelectorAll('tbody tr');
+            
+            rows.forEach(function(row) {
+                const text = row.textContent.toLowerCase();
+                if (!query || text.includes(query)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        searchInput.addEventListener('input', filterRows);
+        
+        // Also re-filter on tab change
+        const tabBtns = document.querySelectorAll('button[data-bs-toggle="tab"]');
+        tabBtns.forEach(function(btn) {
+            btn.addEventListener('shown.bs.tab', filterRows);
+        });
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                filterRows();
+                searchInput.focus();
+            });
+        }
+    }
+});
+</script>
+{% endblock %}

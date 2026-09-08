@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}2FA Security Profile - MedResearch DMS{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card card-custom shadow-sm mb-4">
+                <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-shield-check text-primary me-2"></i>Two-Factor Authentication (TOTP)</h5>
+                        <small class="text-muted">Enhance account security with Google Authenticator or Microsoft Authenticator.</small>
+                    </div>
+                    {% if is_enabled %}
+                        <span class="badge bg-success fs-6"><i class="bi bi-check-circle-fill me-1"></i> ACTIVE</span>
+                    {% else %}
+                        <span class="badge bg-secondary fs-6"><i class="bi bi-x-circle me-1"></i> INACTIVE</span>
+                    {% endif %}
+                </div>
+                
+                <div class="card-body p-4">
+                    {% if is_enabled %}
+                        <div class="alert alert-success d-flex align-items-center gap-3">
+                            <i class="bi bi-shield-fill-check fs-1 text-success"></i>
+                            <div>
+                                <h6 class="fw-bold mb-1">Your account is secured with 2FA</h6>
+                                <p class="mb-0 small">A 6-digit TOTP code will be required each time you sign in with your credentials.</p>
+                            </div>
+                        </div>
+
+                        <form method="POST" onsubmit="return confirm('Are you sure you want to disable 2FA security?');" class="border p-3 rounded bg-light mt-3" style="max-width: 440px;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="disable">
+                            <label class="form-label small fw-semibold text-danger mb-1">
+                                <i class="bi bi-lock-fill me-1"></i>Confirm Password to Disable 2FA:
+                            </label>
+                            <div class="input-group mb-2">
+                                <input type="password" name="password" class="form-control form-control-sm" placeholder="Enter current password" required>
+                                <button type="submit" class="btn btn-sm btn-danger fw-semibold">
+                                    <i class="bi bi-shield-slash me-1"></i> Disable 2FA
+                                </button>
+                            </div>
+                            <div class="form-text small text-muted">Password verification required to guard against session takeover.</div>
+                        </form>
+                    {% else %}
+                        <div class="row align-items-center">
+                            <div class="col-md-5 text-center p-3">
+                                {% if qr_data_uri %}
+                                    <div class="p-2 border rounded bg-white d-inline-block shadow-sm">
+                                        <img src="{{ qr_data_uri }}" alt="TOTP QR Code" class="img-fluid" style="max-width: 200px;">
+                                    </div>
+                                    <p class="text-muted small mt-2 mb-0">Scan using Google Authenticator</p>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-7">
+                                <h6 class="fw-bold text-dark mb-2">Step 1: Scan QR Code</h6>
+                                <p class="text-muted small">Open your mobile authenticator app (Google Authenticator, Microsoft Authenticator, or 1Password) and scan the QR code on the left.</p>
+
+                                {% if secret_key %}
+                                    <div class="mb-3">
+                                        <label class="form-label small text-muted mb-1">Manual Setup Key:</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control font-monospace bg-light" value="{{ secret_key }}" readonly>
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                <h6 class="fw-bold text-dark mt-3 mb-2">Step 2: Enter Verification Token</h6>
+                                <form method="POST">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="verify">
+                                    <div class="input-group mb-3">
+                                        <input type="text" name="token" class="form-control form-control-lg font-monospace text-center fw-bold" 
+                                               placeholder="6-digit code" maxlength="6" pattern="[0-9]{6}" required>
+                                        <button class="btn btn-primary px-4 fw-semibold" type="submit">
+                                            <i class="bi bi-shield-check me-1"></i> Confirm & Activate
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

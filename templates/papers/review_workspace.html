@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+
+{% block title %}Peer Review Desk: {{ paper.title }} - MedResearch DMS{% endblock %}
+
+{% block extra_head %}
+<style>
+    .split-container {
+        height: calc(100vh - 170px);
+        min-height: 600px;
+    }
+    .pdf-viewer-pane {
+        height: 100%;
+        background-color: #525659;
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+    .pdf-frame {
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+    .pdf-viewer-container {
+        position: relative;
+        flex: 1;
+        overflow: hidden;
+    }
+    .watermark-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-around;
+        align-items: center;
+        opacity: 0.22;
+        user-select: none;
+        overflow: hidden;
+    }
+    .watermark-text {
+        transform: rotate(-25deg);
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #ffffff;
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+        letter-spacing: 2px;
+        white-space: nowrap;
+    }
+    .critique-pane {
+        height: 100%;
+        overflow-y: auto;
+        padding-right: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-3">
+    <div class="col-md-8">
+        <h4 class="fw-bold text-dark mb-0">
+            <i class="bi bi-journal-check text-primary me-2"></i>Double-Blind Peer Review Desk
+        </h4>
+        <div class="text-muted small">
+            Manuscript: <strong class="text-dark">{{ paper.title }}</strong> &bull; 
+            <span class="badge bg-light text-dark border">Round {{ round.round_number }}</span>
+        </div>
+    </div>
+    <div class="col-md-4 text-md-end">
+        <a href="{% url 'doctor_dashboard' %}?tab=assigned_reviews" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Return to Workspace
+        </a>
+    </div>
+</div>
+
+<div class="row g-3 split-container">
+    <!-- Left Pane: Protected PDF Document Viewer with Non-Destructive Watermark -->
+    <div class="col-lg-7 h-100">
+        <div class="pdf-viewer-pane d-flex flex-column shadow-sm">
+            <div class="bg-dark text-white px-3 py-2 d-flex align-items-center justify-content-between small">
+                <span>
+                    <i class="bi bi-file-earmark-pdf text-danger me-1"></i>Protected Full-Text Manuscript (Round {{ round.round_number }})
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle ms-2" style="font-size: 0.68rem;">
+                        <i class="bi bi-shield-shaded me-1"></i>Watermarked
+                    </span>
+                </span>
+                <a href="{% url 'paper_pdf_viewer' paper.id %}?round={{ round.round_number }}" target="_blank" class="text-info text-decoration-none small">
+                    <i class="bi bi-arrows-fullscreen me-1"></i> Expand Fullscreen (Secure Viewer)
+                </a>
+            </div>
+            <div class="pdf-viewer-container d-flex flex-column flex-grow-1 position-relative">
+                <!-- Non-destructive visual watermark overlay with pointer-events: none -->
+                <div class="watermark-overlay" aria-hidden="true">
+                    <div class="watermark-text">HOSPITAL CONFIDENTIAL &bull; {{ user.get_full_name|default:user.username }} &bull; {{ request.META.REMOTE_ADDR|default:"127.0.0.1" }} &bull; {% now "Y-m-d H:i" %}</div>
+                    <div class="watermark-text">STRICTLY FOR PEER REVIEW &bull; DO NOT REPRODUCE &bull; {{ user.username }}</div>
+                    <div class="watermark-text">HOSPITAL CONFIDENTIAL &bull; {{ user.get_full_name|default:user.username }} &bull; {{ request.META.REMOTE_ADDR|default:"127.0.0.1" }} &bull; {% now "Y-m-d H:i" %}</div>
+                    <div class="watermark-text">STRICTLY FOR PEER REVIEW &bull; DO NOT REPRODUCE &bull; {{ user.username }}</div>
+                </div>
+                <iframe src="{% url 'serve_protected_paper' paper.id round.round_number %}#toolbar=1" class="pdf-frame flex-grow-1" title="PDF Document Viewer"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Pane: Structured Critique Form -->
+    <div class="col-lg-5 h-100">
+        <div class="card card-custom h-100 shadow-sm critique-pane">
+            <div class="card-header bg-white py-3 border-bottom sticky-top">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="fw-bold mb-0 text-dark">Clinical Peer Evaluation Form</h6>
+                        <small class="text-muted">Structured 3-tier critique for coordinator consolidation.</small>
+                    </div>
+                    {% if is_completed %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle">
+                            <i class="bi bi-check-circle-fill me-1"></i> Critique Submitted
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card-body p-3">
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-dark">
+                            <i class="bi bi-diagram-3 text-primary me-1"></i>{{ form.structure_comment.label }} *
+                        </label>
+                        {{ form.structure_comment }}
+                        <div class="form-text small">Evaluate trial methodology, clinical protocol, cohort power, and design validity.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-dark">
+                            <i class="bi bi-book text-primary me-1"></i>{{ form.intro_comment.label }} *
+                        </label>
+                        {{ form.intro_comment }}
+                        <div class="form-text small">Evaluate clinical context, background significance, and literature references.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-dark">
+                            <i class="bi bi-bar-chart text-primary me-1"></i>{{ form.expansion_comment.label }} *
+                        </label>
+                        {{ form.expansion_comment }}
+                        <div class="form-text small">Evaluate primary/secondary endpoints, adverse effects, and clinical conclusions.</div>
+                    </div>
+
+                    <div class="mb-3 p-3 bg-light rounded border">
+                        <label class="form-label fw-bold small text-dark">{{ form.decision.label }} *</label>
+                        {{ form.decision }}
+
+                        <div class="mt-3">
+                            <label class="form-label fw-bold small text-dark">{{ form.annotated_pdf.label }}</label>
+                            {{ form.annotated_pdf }}
+                            <div class="form-text small">Attach PDF with margin comments if needed.</div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold shadow-sm">
+                        <i class="bi bi-send-check-fill me-1"></i> Submit Critique to Coordinator C
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
